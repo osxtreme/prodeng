@@ -70,9 +70,14 @@ func main() {
 
 	register_trigger(lines, "yellow line", "yl", ansi_yellow)
 	register_trigger(items, "yellow item", "ys", ansi_yellow)
+	register_trigger(lines, "bold yellow line", "byl", ansi_bold_yellow)
 	register_trigger(items, "bold yellow item", "bys", ansi_bold_yellow)
 	register_trigger(lines, "red line", "rl", ansi_red)
 	register_trigger(items, "red item", "rs", ansi_red)
+	register_trigger(lines, "bold red line", "brl", ansi_bold_red)
+	register_trigger(items, "bold red item", "brs", ansi_bold_red)
+	register_trigger(lines, "bold line", "bl", ansi_bold)
+	register_trigger(items, "bold item", "bs", ansi_bold)
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: tail -f <log> | grep stuff | %s [flags]\n",
