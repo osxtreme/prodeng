@@ -43,22 +43,31 @@ const (
 	ansi_reset = "\033[0m"
 )
 
-func register_trigger(m map[*arrayFlags]string, style string, flag_name string, code string) {
+func register_trigger(m map[*arrayFlags]string, o *[]*arrayFlags, style string, flag_name string, code string) {
 	var af arrayFlags
 	flag.Var(&af, flag_name, "String to trigger "+style)
 	m[&af] = code
+	// Store the order that we received the trigger in for priority
+	// and because range over maps is always randomized
+	*o = append(*o, &af)
 }
+
+//type Triggers struct {
 
 func main() {
 
 	line_triggers := make(map[*arrayFlags]string)
+	var line_trigger_order []*arrayFlags
 	item_triggers := make(map[*arrayFlags]string)
+	var item_trigger_order []*arrayFlags
 
-	register_trigger(line_triggers, "yellow line", "yl", ansi_yellow)
-	register_trigger(item_triggers, "yellow item", "ys", ansi_yellow)
-	register_trigger(item_triggers, "bold yellow item", "bys", ansi_bold_yellow)
-	register_trigger(line_triggers, "red line", "rl", ansi_red)
-	register_trigger(item_triggers, "red item", "rs", ansi_red)
+	register_trigger(line_triggers, &line_trigger_order, "yellow line", "yl", ansi_yellow)
+	register_trigger(item_triggers, &item_trigger_order, "yellow item", "ys", ansi_yellow)
+	register_trigger(item_triggers, &item_trigger_order, "bold yellow item", "bys", ansi_bold_yellow)
+	register_trigger(line_triggers, &line_trigger_order, "red line", "rl", ansi_red)
+	register_trigger(item_triggers, &item_trigger_order, "red item", "rs", ansi_red)
+
+	//fmt.Println("lt:", len(line_triggers), "lto:", len(line_trigger_order))
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: tail -f <log> | grep stuff | %s [flags]\n",
@@ -76,9 +85,8 @@ func main() {
 		// Save for strings in multiple colors: If whole line is modified, don't print ansi_reset, revert to line
 		line_color := ansi_reset
 
-		// Note that ranging over maps is random order so multiple runs of multiple hits is too
-
-		for line_trigger_strings, line_style_code := range line_triggers {
+		for _, line_trigger_strings := range line_trigger_order {
+			line_style_code := line_triggers[line_trigger_strings]
 			for _, line_trigger_string := range *line_trigger_strings {
 				if strings.Contains(line, line_trigger_string) {
 					line = line_style_code + line + ansi_reset
@@ -87,7 +95,8 @@ func main() {
 			}
 		}
 
-		for item_trigger_strings, item_style_code := range item_triggers {
+		for _, item_trigger_strings := range item_trigger_order {
+			item_style_code := item_triggers[item_trigger_strings]
 			for _, item_trigger_string := range *item_trigger_strings {
 				// Faster or slower to do strings.Contains check first?
 				line = strings.Replace(line, item_trigger_string, item_style_code+item_trigger_string+line_color, -1)
