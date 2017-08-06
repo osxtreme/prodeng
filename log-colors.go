@@ -68,6 +68,9 @@ func main() {
 	lines := NewTriggers()
 	items := NewTriggers()
 
+	// Note that bolding an item on a line with color, will be bolded in that color
+	// due to how ansi sequences work
+
 	register_trigger(lines, "yellow line", "yl", ansi_yellow)
 	register_trigger(items, "yellow item", "ys", ansi_yellow)
 	register_trigger(lines, "bold yellow line", "byl", ansi_bold_yellow)
@@ -87,6 +90,16 @@ func main() {
 
 	flag.Parse()
 
+	if flag.NFlag() < 1 {
+		fmt.Fprintf(os.Stderr, "Error: No flags given to filter\n")
+		flag.Usage()
+		os.Exit(1)
+	}
+	if flag.NArg() > 0 {
+		fmt.Fprintf(os.Stderr, "Error: Extra non-flag paramters given\n")
+		flag.Usage()
+		os.Exit(1)
+	}
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for scanner.Scan() {
