@@ -43,31 +43,36 @@ const (
 	ansi_reset = "\033[0m"
 )
 
-func register_trigger(m map[*arrayFlags]string, o *[]*arrayFlags, style string, flag_name string, code string) {
-	var af arrayFlags
-	flag.Var(&af, flag_name, "String to trigger "+style)
-	m[&af] = code
-	// Store the order that we received the trigger in for priority
-	// and because range over maps is always randomized
-	*o = append(*o, &af)
+type Triggers struct {
+	triggers      map[*arrayFlags]string
+	trigger_order []*arrayFlags
 }
 
-//type Triggers struct {
+func NewTriggers() *Triggers {
+	t := new(Triggers)
+	t.triggers = make(map[*arrayFlags]string)
+	return t
+}
+
+func register_trigger(t *Triggers, style string, flag_name string, code string) {
+	var af arrayFlags
+	flag.Var(&af, flag_name, "String to trigger "+style)
+	t.triggers[&af] = code
+	// Store the order that we received the trigger in for priority
+	// and because range over maps is always randomized
+	t.trigger_order = append(t.trigger_order, &af)
+}
 
 func main() {
 
-	line_triggers := make(map[*arrayFlags]string)
-	var line_trigger_order []*arrayFlags
-	item_triggers := make(map[*arrayFlags]string)
-	var item_trigger_order []*arrayFlags
+	lines := NewTriggers()
+	items := NewTriggers()
 
-	register_trigger(line_triggers, &line_trigger_order, "yellow line", "yl", ansi_yellow)
-	register_trigger(item_triggers, &item_trigger_order, "yellow item", "ys", ansi_yellow)
-	register_trigger(item_triggers, &item_trigger_order, "bold yellow item", "bys", ansi_bold_yellow)
-	register_trigger(line_triggers, &line_trigger_order, "red line", "rl", ansi_red)
-	register_trigger(item_triggers, &item_trigger_order, "red item", "rs", ansi_red)
-
-	//fmt.Println("lt:", len(line_triggers), "lto:", len(line_trigger_order))
+	register_trigger(lines, "yellow line", "yl", ansi_yellow)
+	register_trigger(items, "yellow item", "ys", ansi_yellow)
+	register_trigger(items, "bold yellow item", "bys", ansi_bold_yellow)
+	register_trigger(lines, "red line", "rl", ansi_red)
+	register_trigger(items, "red item", "rs", ansi_red)
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: tail -f <log> | grep stuff | %s [flags]\n",
@@ -85,8 +90,8 @@ func main() {
 		// Save for strings in multiple colors: If whole line is modified, don't print ansi_reset, revert to line
 		line_color := ansi_reset
 
-		for _, line_trigger_strings := range line_trigger_order {
-			line_style_code := line_triggers[line_trigger_strings]
+		for _, line_trigger_strings := range lines.trigger_order {
+			line_style_code := lines.triggers[line_trigger_strings]
 			for _, line_trigger_string := range *line_trigger_strings {
 				if strings.Contains(line, line_trigger_string) {
 					line = line_style_code + line + ansi_reset
@@ -95,8 +100,8 @@ func main() {
 			}
 		}
 
-		for _, item_trigger_strings := range item_trigger_order {
-			item_style_code := item_triggers[item_trigger_strings]
+		for _, item_trigger_strings := range items.trigger_order {
+			item_style_code := items.triggers[item_trigger_strings]
 			for _, item_trigger_string := range *item_trigger_strings {
 				// Faster or slower to do strings.Contains check first?
 				line = strings.Replace(line, item_trigger_string, item_style_code+item_trigger_string+line_color, -1)
