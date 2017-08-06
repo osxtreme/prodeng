@@ -4,6 +4,7 @@ package main
 // -Support more complex interleave of multiple hits besides line color?
 // -Fix Color priority order hard coded for lines?
 // -support more colors and hi-colors and bold
+// -support -s or -v to do grep -v like behavior (supress/skip line)?
 
 import (
 	"bufio"
