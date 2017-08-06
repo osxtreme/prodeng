@@ -21,7 +21,7 @@ type arrayFlags []string
 // or at least in help text it does
 func (s *arrayFlags) String() string {
 	// Empty string for default
-	return ""
+	return "[string]"
 }
 
 func (s *arrayFlags) Set(value string) error {
@@ -29,30 +29,36 @@ func (s *arrayFlags) Set(value string) error {
 	return nil
 }
 
-func reg_aFlag(name string, desc string) *arrayFlags {
+const (
+	// http://pueblo.sourceforge.net/doc/manual/ansi_color_codes.html
+	// non-bold color codes for the lines include turning off bold, so that mid-line strings
+	// can reset from bold to standard (or vice versa) as needed
+
+	ansi_bold        = "\033[1m"
+	ansi_red         = "\033[0;31m"
+	ansi_bold_red    = "\033[1;31m"
+	ansi_yellow      = "\033[0;33m"
+	ansi_bold_yellow = "\033[1;33m"
+
+	ansi_reset = "\033[0m"
+)
+
+func register_trigger(m map[*arrayFlags]string, style string, flag_name string, code string) {
 	var af arrayFlags
-	flag.Var(&af, name, desc)
-	return &af
+	flag.Var(&af, flag_name, "String to trigger "+style)
+	m[&af] = code
 }
 
 func main() {
 
-	// http://pueblo.sourceforge.net/doc/manual/ansi_color_codes.html
-	// non-bold color codes for the lines include turning off bold, so that mid-line strings
-	// can reset from bold to standard (or vice versa) as needed
-	var ansi_red = "\033[0;31m"
-	//	var ansi_bold_red = "\033[1;31m"
+	line_triggers := make(map[*arrayFlags]string)
+	item_triggers := make(map[*arrayFlags]string)
 
-	var ansi_yellow = "\033[0;33m"
-	var ansi_bold_yellow = "\033[1;33m"
-
-	var ansi_normal = "\033[0m"
-
-	flag_yellow_lines := reg_aFlag("yl", "String(s) to trigger whole line in yellow")
-	flag_yellow_strings := reg_aFlag("ys", "String(s) to make yellow")
-	flag_byellow_strings := reg_aFlag("bys", "String(s) to make bold yellow")
-	flag_red_lines := reg_aFlag("rl", "String(s) to trigger whole line in red")
-	flag_red_strings := reg_aFlag("rs", "String(s) to make red")
+	register_trigger(line_triggers, "yellow line", "yl", ansi_yellow)
+	register_trigger(item_triggers, "yellow item", "ys", ansi_yellow)
+	register_trigger(item_triggers, "bold yellow item", "bys", ansi_bold_yellow)
+	register_trigger(line_triggers, "red line", "rl", ansi_red)
+	register_trigger(item_triggers, "red item", "rs", ansi_red)
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: tail -f <log> | grep stuff | %s [flags]\n",
@@ -67,37 +73,25 @@ func main() {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// For multiple colors: If whole line is modified, don't print ansi_normal, revert to line
-		line_color := ansi_normal
+		// Save for strings in multiple colors: If whole line is modified, don't print ansi_reset, revert to line
+		line_color := ansi_reset
 
-		for _, yl := range *flag_yellow_lines {
-			if strings.Contains(line, yl) {
-				line = ansi_yellow + line + ansi_normal
-				line_color = ansi_yellow
+		// Note that ranging over maps is random order so multiple runs of multiple hits is too
+
+		for line_trigger_strings, line_style_code := range line_triggers {
+			for _, line_trigger_string := range *line_trigger_strings {
+				if strings.Contains(line, line_trigger_string) {
+					line = line_style_code + line + ansi_reset
+					line_color = line_style_code
+				}
 			}
 		}
 
-		for _, rl := range *flag_red_lines {
-			if strings.Contains(line, rl) {
-				line = ansi_red + line + ansi_normal
-				line_color = ansi_red
+		for item_trigger_strings, item_style_code := range item_triggers {
+			for _, item_trigger_string := range *item_trigger_strings {
+				// Faster or slower to do strings.Contains check first?
+				line = strings.Replace(line, item_trigger_string, item_style_code+item_trigger_string+line_color, -1)
 			}
-		}
-
-		for _, s := range *flag_yellow_strings {
-			//fmt.Println("Looking for:", ys)
-			// Faster or slower to do strings.Contains check first?
-			line = strings.Replace(line, s, ansi_yellow+s+line_color, -1)
-		}
-
-		for _, s := range *flag_byellow_strings {
-			// Faster or slower to do strings.Contains check first?
-			line = strings.Replace(line, s, ansi_bold_yellow+s+line_color, -1)
-		}
-
-		for _, s := range *flag_red_strings {
-			// Faster or slower to do strings.Contains check first?
-			line = strings.Replace(line, s, ansi_red+s+line_color, -1)
 		}
 
 		fmt.Println(line)
