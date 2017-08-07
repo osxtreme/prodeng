@@ -96,7 +96,7 @@ func main() {
 		os.Exit(1)
 	}
 	if flag.NArg() > 0 {
-		fmt.Fprintf(os.Stderr, "Error: Extra non-flag paramters given\n")
+		fmt.Fprintf(os.Stderr, "Error: Extra non-flag parameters given\n")
 		flag.Usage()
 		os.Exit(1)
 	}
